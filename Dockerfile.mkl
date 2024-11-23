@@ -1,0 +1,45 @@
+# Use Intel's oneAPI base image
+FROM intel/oneapi-basekit:latest
+
+# Set environment variables for MKL
+ENV MKL_NUM_THREADS=1
+ENV OMP_NUM_THREADS=1
+
+# Install Python and other required dependencies
+RUN apt-get update && \
+    apt-get install -y \
+        python3 \
+        python3-pip \
+        python3-venv \
+        python3-dev \
+        build-essential \
+        cython3 \
+        git \
+        wget
+
+# Create a virtual environment
+RUN python3 -m venv /venv
+
+# Activate virtual environment and install benchmarking tool
+RUN /venv/bin/pip install --upgrade pip && \
+    /venv/bin/pip install asv
+
+# Clone the NumPy repository
+RUN git clone https://github.com/numpy/numpy.git /numpy
+
+# Set the working directory to the NumPy repository
+WORKDIR /numpy
+
+# Configure NumPy to use MKL
+ENV CFLAGS="-m64 -I/opt/intel/oneapi/mkl/latest/include"
+ENV LDFLAGS="-L/opt/intel/oneapi/mkl/latest/lib/intel64 -lmkl_rt -liomp5 -lpthread -lm"
+
+# Build and install NumPy using pip
+RUN /venv/bin/pip install .
+
+# Verify linkage
+RUN /venv/bin/python -c "import numpy; numpy.show_config()"
+
+# Use virtual environment as default Python environment
+ENV PATH="/venv/bin:$PATH"
+
